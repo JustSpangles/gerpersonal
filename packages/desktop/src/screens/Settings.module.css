@@ -1,0 +1,45 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.card {
+  max-width: 640px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.saved {
+  color: var(--color-ok);
+  font-weight: var(--font-weight-bold);
+}
+
+.result {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-alt);
+  border-left: 4px solid currentColor;
+}
+
+.ok {
+  color: var(--color-ok);
+}
+
+.warn {
+  color: var(--color-warn);
+}
+
+.danger {
+  color: var(--color-danger);
+}

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 430" role="img" aria-label="Cuerpo humano">
+  <!--
+    Cuerpo de frente. Reemplazable por otro dibujo (Figma → SVG) mientras cada
+    zona clickeable conserve su id="zona-<id>" (ver ZONAS_CUERPO en
+    packages/shared/src/areas/salud/zonas.ts). Izquierda/derecha son las de Ger:
+    su lado derecho se ve a la izquierda de la pantalla.
+    Los colores de acá son solo para ver el archivo suelto; en la app manda el tema.
+  -->
+  <g fill="#e4dccb" stroke="#a2967e" stroke-width="1.5" stroke-linejoin="round">
+    <rect id="zona-pierna-derecha" x="68" y="246" width="30" height="156" rx="14"><title>Pierna derecha</title></rect>
+    <rect id="zona-pierna-izquierda" x="102" y="246" width="30" height="156" rx="14"><title>Pierna izquierda</title></rect>
+    <ellipse id="zona-pie-derecho" cx="79" cy="411" rx="20" ry="9"><title>Pie derecho</title></ellipse>
+    <ellipse id="zona-pie-izquierdo" cx="121" cy="411" rx="20" ry="9"><title>Pie izquierdo</title></ellipse>
+
+    <rect id="zona-brazo-derecho" x="42" y="104" width="22" height="126" rx="11" transform="rotate(10 53 104)"><title>Brazo derecho</title></rect>
+    <rect id="zona-brazo-izquierdo" x="136" y="104" width="22" height="126" rx="11" transform="rotate(-10 147 104)"><title>Brazo izquierdo</title></rect>
+    <ellipse id="zona-mano-derecha" cx="31" cy="242" rx="11" ry="15" transform="rotate(10 31 242)"><title>Mano derecha</title></ellipse>
+    <ellipse id="zona-mano-izquierda" cx="169" cy="242" rx="11" ry="15" transform="rotate(-10 169 242)"><title>Mano izquierda</title></ellipse>
+
+    <path id="zona-pelvis" d="M70 212 H130 L137 250 Q119 264 100 258 Q81 264 63 250 Z"><title>Pelvis</title></path>
+    <path id="zona-abdomen" d="M68 152 H132 L130 212 H70 Z"><title>Abdomen</title></path>
+    <path id="zona-pecho" d="M72 82 H128 Q139 82 138 94 L132 152 H68 L62 94 Q61 82 72 82 Z"><title>Pecho</title></path>
+
+    <circle id="zona-hombro-derecho" cx="60" cy="96" r="15"><title>Hombro derecho</title></circle>
+    <circle id="zona-hombro-izquierdo" cx="140" cy="96" r="15"><title>Hombro izquierdo</title></circle>
+
+    <rect id="zona-cuello" x="88" y="58" width="24" height="26" rx="6"><title>Cuello</title></rect>
+    <ellipse id="zona-cabeza" cx="100" cy="36" rx="24" ry="28"><title>Cabeza</title></ellipse>
+  </g>
+</svg>

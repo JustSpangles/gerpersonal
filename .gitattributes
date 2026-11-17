@@ -1,0 +1,5 @@
+# Fines de línea LF en todo el repo (la PC es Windows y el núcleo corre en Android).
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

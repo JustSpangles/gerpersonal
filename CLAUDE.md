@@ -49,8 +49,8 @@ PC (UI)   ───►  │  api/ (HTTP) ─────┘                     
 | Capa | Tecnología |
 |---|---|
 | Lenguaje | TypeScript (strict) en todo el proyecto |
-| Núcleo | Node.js 22+ |
-| DB | SQLite (`node:sqlite` nativo o `better-sqlite3`; elegir el que compile en Termux) |
+| Núcleo | Node.js 22.18+ (corre los `.ts` directo, sin compilar) |
+| DB | SQLite con `node:sqlite` nativo (no compila nada: anda en Termux) |
 | Validación | Zod (los esquemas de campos se reutilizan en bot, API y UI) |
 | API | Fastify (o Express), JSON sobre HTTP |
 | Bot | Baileys (WhatsApp no oficial, vinculado por QR) |
@@ -80,11 +80,12 @@ Cada área es autocontenida y se **registra sola** en el registro central. Agreg
 
 ```
 packages/shared/src/areas/<area>/definition.ts   # campos, comandos, prefijo de código
-packages/core/src/areas/<area>/schema.sql        # tablas
+packages/core/src/areas/<area>/migrations/NNN_<area>.sql  # tablas (ver §11: numeración global)
 packages/core/src/areas/<area>/service.ts        # lógica (crear, listar, editar, borrar, stats)
 packages/core/src/areas/<area>/commands.ts       # (opcional) comportamiento extra del bot
-packages/desktop/src/areas/<area>/View.tsx       # pantalla del área
+packages/desktop/src/areas/<area>/View.tsx       # pantalla del área (si falta, vista vacía)
 packages/desktop/src/areas/<area>/charts.tsx     # gráficos
+packages/desktop/src/assets/icons/<area>.svg     # ícono del cuadro del menú
 ```
 
 Cada definición de comando declara **sus campos una sola vez**, y de ahí se derivan:
@@ -190,7 +191,7 @@ attachments(id, record_code, file_path, mime, created_at)
 7. Despliegue en Android/Termux, Tailscale y respaldo diario en la PC.
 
 ### Estado actual
-- [ ] Fase 1
+- [x] Fase 1 — esqueleto listo (16/11/2026). 50 tests en verde. Probado: núcleo con Node directo, interfaz en navegador y en Electron.
 - [ ] Fase 2
 - [ ] Fase 3
 - [ ] Fase 4
@@ -213,3 +214,31 @@ attachments(id, record_code, file_path, mime, created_at)
 - Montos en **centavos (enteros)** en la DB. Mostrar en pesos con separador argentino.
 - Secretos y datos (`data/`, sesión de Baileys, `config.json`) siempre en `.gitignore`.
 - Al terminar una tarea: correr los tests, actualizar "Estado actual" y anotar en este archivo las decisiones nuevas.
+
+---
+
+## 11. Decisiones tomadas
+
+### Comandos
+| Comando (desde la raíz) | Qué hace |
+|---|---|
+| `npm run dev:core` | Núcleo con recarga automática (`npm run core` sin recarga) |
+| `npm run dev:desktop` | Programa de PC en Electron (la primera vez baja Electron) |
+| `npm run dev:web` | Solo la interfaz, en el navegador (http://localhost:5173) |
+| `npm test` / `npm run typecheck` | Tests (Vitest) / chequeo de tipos de los 3 paquetes |
+| `npm run build:desktop` | Compila Electron a `packages/desktop/out/` |
+
+### Fase 1 (esqueleto)
+- **TypeScript sin compilar en el núcleo**: Node ≥ 22.18 ejecuta `.ts` directo (type stripping). Por eso: imports con extensión `.ts`, `import type` para tipos, y nada de `enum`, `namespace` ni propiedades en el constructor (`erasableSyntaxOnly`). En Termux no hay paso de build.
+- **`node:sqlite`**: sin compilación nativa. El aviso "experimental" se silencia con `--disable-warning=ExperimentalWarning` (scripts y Vitest). WAL + `foreign_keys` activados.
+- **Migraciones**: una sola numeración global, pero cada archivo vive donde corresponde: comunes en `core/src/db/migrations/`, de cada área en `core/src/areas/<area>/migrations/` (así agregar un área no toca nada afuera). El número no se puede repetir en todo el proyecto. Se guarda un checksum (sin contar fines de línea) en `schema_migrations`: si se edita una migración aplicada, o la base tiene migraciones que el código no conoce, el núcleo no arranca.
+- **Códigos**: tabla `counters(prefix, last_number)`. `nextCode(db, prefix)` en `core/src/records/codes.ts`; llamarla dentro de la misma transacción que el INSERT del registro. `formatCode`/`parseCode` están en shared.
+- **Registro de áreas**: cada `shared/src/areas/<id>/definition.ts` exporta por defecto `defineArea({...})`. Nadie las importa a mano: el núcleo las descubre leyendo la carpeta (`@ger/shared/node`) y la PC con `import.meta.glob`. `buildRegistry` valida: id = nombre de carpeta, prefijo de una letra y único, palabras clave únicas (sin tildes ni mayúsculas) y que no choquen con las globales (`ayuda`, `ver`, `editar`, `borrar`, `si`, `no`). Los `commands` de cada área están vacíos hasta su fase.
+- **API**: Fastify en el puerto 3210, escucha en `0.0.0.0` (red local y Tailscale). Todas las rutas piden `Authorization: Bearer <apiToken>` salvo `GET /health`. CORS abierto: la protección es el token. Rutas actuales: `/health`, `/areas`, `/areas/:id`.
+- **`config.json` del núcleo**: en la raíz del repo (otra ruta: variable `GER_CONFIG`). Si no existe, el núcleo lo crea con un token al azar y avisa por consola. Modelo: `config.example.json`. Al arrancar muestra las IPs para configurar la PC.
+- **Programa de PC**: guarda URL del núcleo + token en `%APPDATA%/Ger Personal/config.json` vía IPC (`window.gerDesktop`, expuesto por `electron/preload.ts`; ventana con `contextIsolation` + `sandbox`). Fuera de Electron (`dev:web`) usa localStorage. Navegación por hash (`#/`, `#/ajustes`, `#/area/salud?zona=cabeza`). Estado de conexión en el menú: conectado / falta o token incorrecto / sin conexión.
+- **Diseño reemplazable**: tokens en `desktop/src/theme/tokens.ts` (se publican como variables CSS `--color-*`, `--space-*`…); componentes base en `desktop/src/components/`; SVG en `desktop/src/assets/`. Los íconos se dibujan dentro del HTML y usan `currentColor`, así toman el color del tema.
+- **Cuerpo humano**: `desktop/src/assets/cuerpo.svg`, cada zona con `id="zona-<id>"`; la lista de zonas está en `shared/src/areas/salud/zonas.ts`. Izquierda/derecha son las de Ger (su derecha se ve a la izquierda). Un test verifica que el SVG y la lista coincidan: al reemplazar el dibujo hay que conservar esos ids.
+- **Salud** ya tiene `View.tsx` propio (cuerpo + zona elegida, sin datos); las demás áreas usan la vista vacía genérica.
+- **Fechas**: marcas de tiempo (`created_at`, etc.) en UTC ISO 8601 con `Z`. Zona horaria del sistema: `TIMEZONE` en shared.
+- **Electron** (v45) baja su binario la primera vez que se usa (`predev` → `install-electron`), no al hacer `npm install`. En Termux alcanzaría con `npm install --omit=dev` (a verificar en la fase 7).

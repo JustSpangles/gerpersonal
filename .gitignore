@@ -1,0 +1,15 @@
+# Dependencias y builds
+node_modules/
+packages/desktop/out/
+dist/
+*.tsbuildinfo
+
+# Datos y secretos (nunca al repo)
+/data/
+/backups/
+/config.json
+
+# Varios
+*.log
+.DS_Store
+Thumbs.db

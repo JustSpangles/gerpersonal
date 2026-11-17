@@ -1,0 +1,5 @@
+.app {
+  height: 100%;
+  padding: var(--space-lg) var(--space-xl);
+  overflow: auto;
+}

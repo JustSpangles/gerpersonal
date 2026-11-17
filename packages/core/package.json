@@ -1,0 +1,17 @@
+{
+  "name": "@ger/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Núcleo: base de datos, API, bot de WhatsApp y tareas programadas",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/main.ts",
+    "dev": "node --watch --disable-warning=ExperimentalWarning src/main.ts",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@ger/shared": "*",
+    "fastify": "^5.12.8",
+    "zod": "^4.6.7"
+  }
+}
