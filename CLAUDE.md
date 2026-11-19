@@ -186,7 +186,9 @@ attachments(id, record_code, file_path, mime, created_at)
 
 1. **Esqueleto**: monorepo, DB y migraciones, registro de áreas, API base, Electron con menú principal (cuadros y cuerpo) y vistas vacías.
 2. **Finanzas completa** (servicio, API, UI y gráficos, comandos). Sirve como **plantilla** para el resto.
-3. **Bot**: conexión por QR, parser genérico, `ayuda`/`ver`/`editar`/`borrar`, fotos por código y por cita. Comandos de Finanzas.
+3. **Bot**: conexión por QR, parser genérico, `ayuda`/`ver`/`editar`/`borrar`, fotos por código y por cita. Comandos de Finanzas. Se hace en dos partes:
+   - **3a. Lógica sin conexión**: parser, comandos globales, comandos de Finanzas, fotos y lista blanca, todo probado con tests sin WhatsApp (ver "Notas para la fase 3" en §11).
+   - **3b. Conexión**: Baileys + QR con el número del bot, y prueba real por WhatsApp.
 4. **Calendario** + scheduler (resumen 7 AM y avisos).
 5. Gimnasio y Sobre mí.
 6. Salud (mapa del cuerpo), Alimentación y Trabajo (estudio con repetición espaciada).
@@ -195,7 +197,8 @@ attachments(id, record_code, file_path, mime, created_at)
 ### Estado actual
 - [x] Fase 1 — esqueleto listo (16/11/2026). 50 tests en verde. Probado: núcleo con Node directo, interfaz en navegador y en Electron.
 - [x] Fase 2 — Finanzas completa (16/11/2026): servicio, API, pantalla con formulario, lista y gráficos, y comandos `gasté`/`cobré` definidos (el bot los conecta en la fase 3). 138 tests en verde. Probado en el navegador contra un núcleo real: alta, edición, borrado, filtros y gráficos.
-- [ ] Fase 3
+- [ ] Fase 3a — lógica del bot sin conexión (es la siguiente)
+- [ ] Fase 3b — conexión con WhatsApp (espera el número del bot)
 - [ ] Fase 4
 - [ ] Fase 5
 - [ ] Fase 6
@@ -216,6 +219,7 @@ attachments(id, record_code, file_path, mime, created_at)
 - Montos en **centavos (enteros)** en la DB. Mostrar en pesos con separador argentino.
 - Secretos y datos (`data/`, sesión de Baileys, `config.json`) siempre en `.gitignore`.
 - Al terminar una tarea: correr los tests, actualizar "Estado actual" y anotar en este archivo las decisiones nuevas.
+- **Git**: una rama por fase, creada desde `main` (`fase-3a-bot-logica`, `fase-4-calendario`…). Cuando la fase está terminada y probada: commit, pasar a `main` (fast-forward) y subir a GitHub. Commitear y subir solo cuando Ger lo pide.
 
 ---
 
@@ -256,3 +260,13 @@ attachments(id, record_code, file_path, mime, created_at)
 - **PC, piezas reutilizables**: `RecordForm` arma el formulario desde los campos (enum de hasta 4 opciones → botones; monto → texto en formato argentino que se acomoda al salir del campo; fecha y hora → selectores nativos; errores del núcleo por campo). `useApiQuery(path)` (`core/useApi.ts`) trae datos y los vuelve a pedir cuando vuelve la conexión. Componentes base nuevos: `Dialog` (`<dialog>` nativo), `Segmented`, `SelectField`, `Stat`; `Button` suma `danger` y `size="sm"`.
 - **Pantalla de Finanzas**: un mes por vez (`#/area/finanzas?mes=2026-11`): totales, gráficos y lista con filtro por tipo y por categoría (tocando la categoría). Al guardar un movimiento de otro mes, salta a ese mes. Los avisos muestran el código (`✅ F63 guardado: …`).
 - **Gráficos** (Recharts 3, colores en `tokens.chart`, validados para daltonismo): "Saldo mensual" = barras de ingresos y gastos de 12 meses, con "Ver tabla"; "Por categoría" = barras horizontales ordenadas con monto y %, **en lugar de torta**: comparan mejor montos parecidos y aguantan muchas categorías; "Evolución del saldo" = línea del saldo acumulado al cierre de cada mes. Los colores de estado (ok/peligro) no se usan para series.
+
+### Notas para la fase 3 (bot)
+Pendiente de hacer, no decidido en código todavía. La 3a no necesita el número de WhatsApp.
+- **Capa fina y testeable**: el manejo de mensajes es una función pura (mensaje entrante → respuesta) separada del socket de Baileys. La 3a la arma y la prueba con Vitest; la 3b solo la enchufa a WhatsApp.
+- **Parser genérico** en `shared`: palabra clave con `normalizeText`, campos separados por ` - `, opcionales omitibles al final, los `fixed` no se escriben y cada campo pasa por `parseFieldValue`. El mensaje de formato se arma desde los campos y el `example` del comando, no se escribe a mano.
+- **`ver` / `editar` / `borrar` para cualquier área**: hace falta una capa genérica de registros: el prefijo del código lleva al servicio del área (obtener, editar, borrar y describir para la confirmación). Hoy solo existe Finanzas (`findMovimiento`, `updateMovimiento`, `deleteMovimiento`).
+- **`borrar`** pide `sí`; cualquier otra respuesta cancela.
+- **Fotos**: archivo en `data/media/` y fila en `attachments` (ya existe en `001_init.sql`). Al borrar un registro hay que borrar también sus adjuntos: hoy no se hace.
+- **Lista blanca**: el número de Ger va en `config.json` (con un ejemplo en `config.example.json`). La 3a lo prueba con números de mentira.
+- **Baileys (3b)**: versión publicada hace por lo menos 2 semanas y sin dependencias nativas, para que ande en Termux. La sesión de WhatsApp se guarda en `data/` (gitignored). Si no está vinculada, la API igual tiene que arrancar.
