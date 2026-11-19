@@ -20,4 +20,6 @@ export interface AreaResponse {
 
 export interface ApiErrorBody {
   error: string;
+  /** Errores por campo cuando los datos no son válidos: `{ monto: 'falta' }`. */
+  campos?: Record<string, string>;
 }

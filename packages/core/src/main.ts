@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
 import { join } from 'node:path';
 import { loadAreaRegistry } from '@ger/shared/node';
+import { loadAreaRoutes } from './api/areaRoutes.ts';
 import { buildServer } from './api/server.ts';
 import { loadConfig } from './config.ts';
 import { openDatabase } from './db/database.ts';
@@ -30,7 +31,9 @@ for (const migration of applied) console.log(`Migración aplicada: ${migration.n
 
 const areas = await loadAreaRegistry();
 
-const app = buildServer({ db, areas, apiToken: config.apiToken, version, logger: { level: 'warn' } });
+const areaRoutes = await loadAreaRoutes();
+
+const app = buildServer({ db, areas, areaRoutes, apiToken: config.apiToken, version, logger: { level: 'warn' } });
 await app.listen({ port: config.port, host: config.host });
 
 console.log(`Núcleo v${version} escuchando en el puerto ${config.port} · ${areas.all.length} áreas · datos en ${dataDir}`);

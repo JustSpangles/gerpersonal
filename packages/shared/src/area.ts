@@ -16,6 +16,8 @@ const fieldBase = {
   key: fieldKey,
   /** Texto para mostrar (formulario, mensaje de formato). Si falta, se usa `key`. */
   label: z.string().min(1).optional(),
+  /** Ayuda corta debajo del campo en el formulario. */
+  hint: z.string().min(1).optional(),
   required: z.boolean().optional(),
 };
 
@@ -29,13 +31,15 @@ export const fieldSchema = z.discriminatedUnion('type', [
   z.object({ ...fieldBase, type: z.literal('text'), default: z.string().optional() }),
   z.object({ ...fieldBase, ...numberLimits, type: z.literal('number'), default: z.number().optional() }),
   z.object({ ...fieldBase, ...numberLimits, type: z.literal('int'), default: z.number().int().optional() }),
-  /** Monto en pesos. Se guarda en centavos (entero). */
+  /** Monto en pesos, mayor a 0. Se guarda en centavos (entero). */
   z.object({ ...fieldBase, type: z.literal('money'), default: z.number().int().optional() }),
   z
     .object({
       ...fieldBase,
       type: z.literal('enum'),
       options: z.array(z.string().min(1)).min(1),
+      /** Cómo se muestra cada opción en la UI, p. ej. `{ egreso: 'Gasto' }`. */
+      optionLabels: z.record(z.string(), z.string().min(1)).optional(),
       default: z.string().optional(),
     })
     .refine((f) => f.default === undefined || f.options.includes(f.default), {
@@ -53,7 +57,16 @@ export const commandSchema = z.object({
   description: z.string().min(1),
   /** Palabras clave del bot. Se comparan sin mayúsculas ni tildes. */
   keywords: z.array(z.string().min(1)).min(1),
+  /**
+   * Campos del registro, en el orden en que se escriben en el bot. Los
+   * opcionales (o con valor por defecto) van al final.
+   */
   fields: z.array(fieldSchema),
+  /**
+   * Valores que pone el comando sin preguntarlos. P. ej. `gasté` y `cobré`
+   * comparten campos y solo cambian `{ tipo: 'egreso' }` / `{ tipo: 'ingreso' }`.
+   */
+  fixed: z.record(z.string(), z.union([z.string(), z.number()])).default({}),
   example: z.string().min(1),
 });
 

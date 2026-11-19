@@ -25,6 +25,18 @@ export const tokens = {
     bodyStroke: '#a2967e',
     bodyHover: '#2e6b5a',
   },
+  /**
+   * Gráficos. Colores de series validados para daltonismo (sobre `surface`):
+   * ingresos y gastos van juntos en un gráfico; el saldo, siempre solo.
+   */
+  chart: {
+    income: '#2a78d6',
+    expense: '#eb6834',
+    balance: '#008300',
+    grid: '#ebe5d8',
+    axis: '#d8cfbd',
+    label: '#6d6657',
+  },
   font: {
     family: '"Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", sans-serif',
     sizeSm: '13px',
@@ -32,6 +44,7 @@ export const tokens = {
     sizeLg: '19px',
     sizeXl: '26px',
     sizeXxl: '34px',
+    sizeXs: '12px',
     weightNormal: '400',
     weightBold: '650',
   },

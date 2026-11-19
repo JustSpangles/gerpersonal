@@ -116,4 +116,38 @@ describe('registro de áreas', () => {
     const repetido = [{ ...commands[0]!, fields: [commands[0]!.fields[0]!, commands[0]!.fields[0]!] }];
     expect(() => buildRegistry({ 'areas/prueba/definition.ts': mod(area({ commands: repetido })) })).toThrow(/"nombre" está repetido/);
   });
+
+  it('valida los valores fijos y el orden de los campos', () => {
+    const base = {
+      id: 'gasto',
+      description: 'x',
+      keywords: ['gasté'],
+      fields: [
+        { key: 'tipo', type: 'enum' as const, options: ['egreso', 'ingreso'], required: true },
+        { key: 'monto', type: 'money' as const, required: true },
+        { key: 'nota', type: 'text' as const },
+      ],
+      fixed: { tipo: 'egreso' },
+      example: 'gasté 100',
+    };
+    const build = (command: object) => () => buildRegistry({ 'areas/prueba/definition.ts': mod(area({ commands: [command as typeof base] })) });
+
+    expect(build(base)).not.toThrow();
+    expect(build({ ...base, fixed: { tipo: 'regalo' } })).toThrow(/"regalo" no sirve para el campo "tipo"/);
+    expect(build({ ...base, fixed: { color: 'rojo' } })).toThrow(/"color" no es un campo/);
+    // Sin el valor fijo, "tipo" pasa a escribirse y está bien que vaya primero…
+    expect(build({ ...base, fixed: {} })).not.toThrow();
+    // …pero un obligatorio después de un opcional no se podría omitir en el bot.
+    expect(build({ ...base, fields: [base.fields[0], base.fields[2], base.fields[1]] })).toThrow(
+      /obligatorio "monto" tiene que ir antes que el opcional "nota"/,
+    );
+  });
+
+  it('Finanzas: gasto e ingreso comparten campos y cambian el tipo', async () => {
+    const finanzas = (await loadAreaRegistry()).get('finanzas')!;
+    expect(finanzas.commands.map((c) => [c.id, c.fixed])).toEqual([
+      ['gasto', { tipo: 'egreso' }],
+      ['ingreso', { tipo: 'ingreso' }],
+    ]);
+  });
 });

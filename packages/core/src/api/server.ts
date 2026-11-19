@@ -2,6 +2,8 @@ import { timingSafeEqual } from 'node:crypto';
 import type { AreaRegistry, AreaResponse, AreasResponse, HealthResponse } from '@ger/shared';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import type { Db } from '../db/database.ts';
+import { NotFoundError, ValidationError } from '../records/errors.ts';
+import type { AreaRoutes } from './areaRoutes.ts';
 
 /**
  * API HTTP del núcleo. Es una capa fina: valida, llama al servicio del área
@@ -13,6 +15,8 @@ export interface ServerDeps {
   areas: AreaRegistry;
   apiToken: string;
   version: string;
+  /** Rutas propias de cada área (`loadAreaRoutes()`), montadas en `/areas/<id>/`. */
+  areaRoutes?: ReadonlyMap<string, AreaRoutes>;
   logger?: FastifyServerOptions['logger'];
 }
 
@@ -44,6 +48,18 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
 
   app.setNotFoundHandler((_request, reply) => reply.code(404).send({ error: 'No existe' }));
 
+  // Los errores de los servicios ya traen mensajes para leer: se devuelven tal cual.
+  app.setErrorHandler((error, request, reply) => {
+    if (error instanceof ValidationError) return reply.code(400).send({ error: error.message, campos: error.fields });
+    if (error instanceof NotFoundError) return reply.code(404).send({ error: error.message });
+    const status = (error as { statusCode?: number }).statusCode;
+    if (status !== undefined && status >= 400 && status < 500) {
+      return reply.code(status).send({ error: error instanceof Error ? error.message : String(error) });
+    }
+    request.log.error(error);
+    return reply.code(500).send({ error: 'Error interno del núcleo' });
+  });
+
   app.get('/health', async (): Promise<HealthResponse> => ({
     ok: true,
     name: 'gerpersonal-core',
@@ -58,6 +74,12 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
     if (!area) return reply.code(404).send({ error: `No existe el área "${request.params.id}"` });
     return { area } satisfies AreaResponse;
   });
+
+  for (const [areaId, routes] of deps.areaRoutes ?? []) {
+    const area = deps.areas.get(areaId);
+    if (!area) throw new Error(`Hay rutas para el área "${areaId}", pero el área no existe`);
+    void app.register(routes, { prefix: `/areas/${areaId}`, db: deps.db, area });
+  }
 
   return app;
 }

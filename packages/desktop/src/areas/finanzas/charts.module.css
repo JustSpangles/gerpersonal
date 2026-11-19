@@ -1,0 +1,156 @@
+/* Leyenda (siempre arriba del gráfico cuando hay más de una serie). */
+.legend {
+  display: flex;
+  gap: var(--space-md);
+  margin: 0 0 var(--space-sm);
+  padding: 0;
+  list-style: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+/* Tooltip */
+.tooltip {
+  min-width: 170px;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-raised);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.tooltipTitle {
+  margin-bottom: 2px;
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-bold);
+}
+
+.tooltipRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.key {
+  width: 12px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.tooltipLabel {
+  color: var(--color-text-muted);
+}
+
+.tooltipFooter {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--color-surface-alt);
+}
+
+/* Por categoría: nombre y monto arriba, barra abajo. */
+.categories {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.category {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px var(--space-sm);
+  width: 100%;
+  padding: 6px var(--space-sm);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.category:hover {
+  background: var(--color-bg);
+}
+
+.category[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.categoryName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.categoryValue {
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.share {
+  display: inline-block;
+  min-width: 4ch;
+  margin-left: var(--space-sm);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-normal);
+  text-align: right;
+}
+
+.track {
+  grid-column: 1 / -1;
+  height: 8px;
+}
+
+.bar {
+  display: block;
+  height: 100%;
+  min-width: 3px;
+  border-radius: 0 4px 4px 0;
+}
+
+/* Tabla de meses */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.table th,
+.table td {
+  padding: 6px var(--space-sm);
+  border-bottom: 1px solid var(--color-surface-alt);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.table th:first-child {
+  text-align: left;
+}
+
+.table thead th {
+  border-bottom-color: var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.table tbody th {
+  font-weight: var(--font-weight-normal);
+}

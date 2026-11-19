@@ -2,9 +2,11 @@ import type { ButtonHTMLAttributes } from 'react';
 import styles from './Button.module.css';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  size?: 'md' | 'sm';
 }
 
-export function Button({ variant = 'secondary', className, type = 'button', ...props }: ButtonProps) {
-  return <button type={type} className={[styles.button, styles[variant], className].filter(Boolean).join(' ')} {...props} />;
+export function Button({ variant = 'secondary', size = 'md', className, type = 'button', ...props }: ButtonProps) {
+  const classes = [styles.button, styles[variant], size === 'sm' && styles.sm, className].filter(Boolean).join(' ');
+  return <button type={type} className={classes} {...props} />;
 }

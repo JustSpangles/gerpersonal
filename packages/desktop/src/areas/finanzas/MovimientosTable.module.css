@@ -1,0 +1,61 @@
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.table th {
+  padding: var(--space-xs) var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  text-align: left;
+}
+
+.table td {
+  padding: var(--space-sm);
+  border-bottom: 1px solid var(--color-surface-alt);
+  vertical-align: middle;
+}
+
+.table tbody tr:hover {
+  background: var(--color-bg);
+}
+
+.code {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-bold);
+}
+
+.note {
+  max-width: 32ch;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.amount {
+  text-align: right !important;
+  white-space: nowrap;
+  font-weight: var(--font-weight-bold);
+}
+
+.income {
+  color: var(--color-ok);
+}
+
+.actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}

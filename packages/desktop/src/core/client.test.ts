@@ -30,6 +30,27 @@ describe('cliente de la API', () => {
     expect(error).toMatchObject({ status: 404, message: 'No existe' });
   });
 
+  it('manda JSON al crear y editar; borrar no tiene cuerpo', async () => {
+    const { fetch, calls } = fakeFetch((_url, init) =>
+      init?.method === 'DELETE' ? new Response(null, { status: 204 }) : json(200, { ok: true }),
+    );
+    const api = createApiClient(config, fetch);
+    await api.post('/x', { monto: 1 });
+    await api.patch('/x/F1', { nota: null });
+    await expect(api.delete('/x/F1')).resolves.toBeUndefined();
+
+    expect(calls.map((c) => c.init?.method)).toEqual(['POST', 'PATCH', 'DELETE']);
+    expect(calls[0]?.init?.body).toBe('{"monto":1}');
+    expect(new Headers(calls[0]?.init?.headers).get('Content-Type')).toBe('application/json');
+    expect(calls[2]?.init?.body).toBeUndefined();
+    expect(new Headers(calls[2]?.init?.headers).has('Content-Type')).toBe(false);
+  });
+
+  it('errores de validación: trae el error de cada campo', async () => {
+    const { fetch } = fakeFetch(() => json(400, { error: 'Datos inválidos', campos: { monto: 'falta' } }));
+    await expect(createApiClient(config, fetch).post('/x', {})).rejects.toMatchObject({ status: 400, fields: { monto: 'falta' } });
+  });
+
   it('sin respuesta: ApiError con status 0', async () => {
     const { fetch } = fakeFetch(() => Promise.reject(new TypeError('fetch failed')));
     await expect(createApiClient(config, fetch).get('/health')).rejects.toMatchObject({ status: 0 });

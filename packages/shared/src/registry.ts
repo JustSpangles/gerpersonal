@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { areaSchema, type AreaDefinition } from './area.ts';
+import { areaSchema, type AreaDefinition, type CommandDefinition } from './area.ts';
+import { fieldValueSchema, isRequired } from './fields.ts';
 import { normalizeText } from './text.ts';
 
 /**
@@ -94,6 +95,7 @@ function findCollisions(areas: AreaDefinition[]): string[] {
         if (fieldKeys.has(field.key)) problems.push(`${area.id}/${command.id}: el campo "${field.key}" está repetido`);
         fieldKeys.add(field.key);
       }
+      problems.push(...checkCommand(`${area.id}/${command.id}`, command));
 
       for (const keyword of command.keywords) {
         const normalized = normalizeText(keyword);
@@ -101,6 +103,32 @@ function findCollisions(areas: AreaDefinition[]): string[] {
         if (owner) problems.push(`${area.id}/${command.id}: la palabra clave "${keyword}" ya la usa ${owner}`);
         else keywords.set(normalized, `${area.id}/${command.id}`);
       }
+    }
+  }
+  return problems;
+}
+
+/** Reglas de cada comando que el esquema solo no puede expresar. */
+function checkCommand(where: string, command: CommandDefinition): string[] {
+  const problems: string[] = [];
+  const byKey = new Map(command.fields.map((field) => [field.key, field]));
+
+  for (const [key, value] of Object.entries(command.fixed)) {
+    const field = byKey.get(key);
+    if (!field) problems.push(`${where}: el valor fijo "${key}" no es un campo del comando`);
+    else if (!fieldValueSchema(field).safeParse(value).success) {
+      problems.push(`${where}: el valor fijo ${JSON.stringify(value)} no sirve para el campo "${key}"`);
+    }
+  }
+
+  // En el bot los campos se escriben en orden y los opcionales se pueden omitir
+  // al final: después de un campo opcional no puede venir uno obligatorio.
+  let firstOptional: string | undefined;
+  for (const field of command.fields) {
+    if (field.key in command.fixed) continue;
+    if (!isRequired(field)) firstOptional ??= field.key;
+    else if (firstOptional) {
+      problems.push(`${where}: el campo obligatorio "${field.key}" tiene que ir antes que el opcional "${firstOptional}"`);
     }
   }
   return problems;

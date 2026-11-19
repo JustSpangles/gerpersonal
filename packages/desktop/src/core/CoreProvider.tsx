@@ -41,9 +41,11 @@ export function CoreProvider({ children }: { children: ReactNode }) {
     setConfig(await saveDesktopConfig(next));
   }, []);
 
+  // El cliente cambia solo si cambia la configuración (no con cada chequeo de conexión).
+  const api = useMemo(() => (config ? createApiClient(config) : null), [config]);
   const value = useMemo(
-    () => (config ? { config, status, api: createApiClient(config), refresh, saveConfig } : null),
-    [config, status, refresh, saveConfig],
+    () => (config && api ? { config, status, api, refresh, saveConfig } : null),
+    [config, api, status, refresh, saveConfig],
   );
 
   if (!value) return null;

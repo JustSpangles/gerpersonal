@@ -80,8 +80,10 @@ Cada área es autocontenida y se **registra sola** en el registro central. Agreg
 
 ```
 packages/shared/src/areas/<area>/definition.ts   # campos, comandos, prefijo de código
+packages/shared/src/areas/<area>/<registros>.ts  # campos y tipos de la API (ej.: finanzas/movimientos.ts)
 packages/core/src/areas/<area>/migrations/NNN_<area>.sql  # tablas (ver §11: numeración global)
 packages/core/src/areas/<area>/service.ts        # lógica (crear, listar, editar, borrar, stats)
+packages/core/src/areas/<area>/routes.ts         # API del área, en /areas/<area>/ (capa fina)
 packages/core/src/areas/<area>/commands.ts       # (opcional) comportamiento extra del bot
 packages/desktop/src/areas/<area>/View.tsx       # pantalla del área (si falta, vista vacía)
 packages/desktop/src/areas/<area>/charts.tsx     # gráficos
@@ -192,7 +194,7 @@ attachments(id, record_code, file_path, mime, created_at)
 
 ### Estado actual
 - [x] Fase 1 — esqueleto listo (16/11/2026). 50 tests en verde. Probado: núcleo con Node directo, interfaz en navegador y en Electron.
-- [ ] Fase 2
+- [x] Fase 2 — Finanzas completa (16/11/2026): servicio, API, pantalla con formulario, lista y gráficos, y comandos `gasté`/`cobré` definidos (el bot los conecta en la fase 3). 138 tests en verde. Probado en el navegador contra un núcleo real: alta, edición, borrado, filtros y gráficos.
 - [ ] Fase 3
 - [ ] Fase 4
 - [ ] Fase 5
@@ -234,7 +236,7 @@ attachments(id, record_code, file_path, mime, created_at)
 - **Migraciones**: una sola numeración global, pero cada archivo vive donde corresponde: comunes en `core/src/db/migrations/`, de cada área en `core/src/areas/<area>/migrations/` (así agregar un área no toca nada afuera). El número no se puede repetir en todo el proyecto. Se guarda un checksum (sin contar fines de línea) en `schema_migrations`: si se edita una migración aplicada, o la base tiene migraciones que el código no conoce, el núcleo no arranca.
 - **Códigos**: tabla `counters(prefix, last_number)`. `nextCode(db, prefix)` en `core/src/records/codes.ts`; llamarla dentro de la misma transacción que el INSERT del registro. `formatCode`/`parseCode` están en shared.
 - **Registro de áreas**: cada `shared/src/areas/<id>/definition.ts` exporta por defecto `defineArea({...})`. Nadie las importa a mano: el núcleo las descubre leyendo la carpeta (`@ger/shared/node`) y la PC con `import.meta.glob`. `buildRegistry` valida: id = nombre de carpeta, prefijo de una letra y único, palabras clave únicas (sin tildes ni mayúsculas) y que no choquen con las globales (`ayuda`, `ver`, `editar`, `borrar`, `si`, `no`). Los `commands` de cada área están vacíos hasta su fase.
-- **API**: Fastify en el puerto 3210, escucha en `0.0.0.0` (red local y Tailscale). Todas las rutas piden `Authorization: Bearer <apiToken>` salvo `GET /health`. CORS abierto: la protección es el token. Rutas actuales: `/health`, `/areas`, `/areas/:id`.
+- **API**: Fastify en el puerto 3210, escucha en `0.0.0.0` (red local y Tailscale). Todas las rutas piden `Authorization: Bearer <apiToken>` salvo `GET /health`. CORS abierto: la protección es el token. Rutas base: `/health`, `/areas`, `/areas/:id` (más las de cada área, ver fase 2).
 - **`config.json` del núcleo**: en la raíz del repo (otra ruta: variable `GER_CONFIG`). Si no existe, el núcleo lo crea con un token al azar y avisa por consola. Modelo: `config.example.json`. Al arrancar muestra las IPs para configurar la PC.
 - **Programa de PC**: guarda URL del núcleo + token en `%APPDATA%/Ger Personal/config.json` vía IPC (`window.gerDesktop`, expuesto por `electron/preload.ts`; ventana con `contextIsolation` + `sandbox`). Fuera de Electron (`dev:web`) usa localStorage. Navegación por hash (`#/`, `#/ajustes`, `#/area/salud?zona=cabeza`). Estado de conexión en el menú: conectado / falta o token incorrecto / sin conexión.
 - **Diseño reemplazable**: tokens en `desktop/src/theme/tokens.ts` (se publican como variables CSS `--color-*`, `--space-*`…); componentes base en `desktop/src/components/`; SVG en `desktop/src/assets/`. Los íconos se dibujan dentro del HTML y usan `currentColor`, así toman el color del tema.
@@ -242,3 +244,15 @@ attachments(id, record_code, file_path, mime, created_at)
 - **Salud** ya tiene `View.tsx` propio (cuerpo + zona elegida, sin datos); las demás áreas usan la vista vacía genérica.
 - **Fechas**: marcas de tiempo (`created_at`, etc.) en UTC ISO 8601 con `Z`. Zona horaria del sistema: `TIMEZONE` en shared.
 - **Electron** (v45) baja su binario la primera vez que se usa (`predev` → `install-electron`), no al hacer `npm install`. En Termux alcanzaría con `npm install --omit=dev` (a verificar en la fase 7).
+
+### Fase 2 (Finanzas: la plantilla de las demás áreas)
+- **Campos una sola vez**: los campos de un registro se declaran en `shared/src/areas/<area>/<registros>.ts` (Finanzas: `CAMPOS_MOVIMIENTO` en `movimientos.ts`) y los comandos los usan. `fixed` = valores que pone la palabra clave sin preguntarlos: `gasté`/`gasto`/`pagué` → `{ tipo: 'egreso' }`, `cobré`/`ingreso` → `{ tipo: 'ingreso' }`. El registro valida además que los valores fijos sirvan y que, en cada comando, los obligatorios vayan antes que los opcionales (en el bot se omiten del final). Los `enum` pueden tener `optionLabels` (`egreso` se muestra "Gasto").
+- **`shared/src/fields.ts`**: todo lo que se deriva de un campo. `validateValues` (API y servicios, errores por campo en castellano), `applyDefaults` (fecha = hoy, hora = ahora, en Argentina), `parseFieldValue` (lo escrito: lo usa el formulario y lo va a usar el bot), `formatFieldValue` y `toInputText`. Montos en `money.ts`, fechas en `dates.ts`.
+- **Montos escritos**: `1500`, `1.500`, `1.500,50`, `1500,5`, `$ 1.500`; un solo punto seguido de 1 o 2 cifras es decimal (`1500.50`). Siempre mayores a 0: el signo lo da el tipo. **Fechas escritas**: `hoy`, `ayer`, `anteayer`, `mañana`, `16/11` (año actual), `16/11/26`, `2026-11-16`.
+- **Servicio** (`core/src/areas/finanzas/service.ts`): `create/get/find/list/update/deleteMovimiento`, `listCategorias` y `getResumen`. Validan lo que reciben (no importa si viene del bot o de la API) y aceptan `now` para los tests. Errores en `core/src/records/errors.ts`: `ValidationError` (con `fields`) → 400 `{ error, campos }`; `NotFoundError` → 404. Los traduce el servidor, no cada ruta.
+- **Categorías**: texto libre. Si ya hay una igual salvo mayúsculas o tildes, se usa esa (`cafe` → `Café`), así no se parten en los gráficos.
+- **Rutas por área**: `core/src/areas/<area>/routes.ts` exporta por defecto `defineAreaRoutes(...)`; `loadAreaRoutes()` las descubre y el servidor las monta en `/areas/<area>/`. Finanzas: `GET/POST /movimientos` (filtros `desde`, `hasta`, `tipo`, `categoria`, `limit`), `GET/PATCH/DELETE /movimientos/:code` (código sin importar mayúsculas; borrar da 204), `GET /categorias?tipo=`, `GET /resumen?mes=AAAA-MM&meses=12`.
+- **Tests del núcleo**: `createTestDb()` (`core/src/db/testing.ts`) da una base en memoria con todas las migraciones.
+- **PC, piezas reutilizables**: `RecordForm` arma el formulario desde los campos (enum de hasta 4 opciones → botones; monto → texto en formato argentino que se acomoda al salir del campo; fecha y hora → selectores nativos; errores del núcleo por campo). `useApiQuery(path)` (`core/useApi.ts`) trae datos y los vuelve a pedir cuando vuelve la conexión. Componentes base nuevos: `Dialog` (`<dialog>` nativo), `Segmented`, `SelectField`, `Stat`; `Button` suma `danger` y `size="sm"`.
+- **Pantalla de Finanzas**: un mes por vez (`#/area/finanzas?mes=2026-11`): totales, gráficos y lista con filtro por tipo y por categoría (tocando la categoría). Al guardar un movimiento de otro mes, salta a ese mes. Los avisos muestran el código (`✅ F63 guardado: …`).
+- **Gráficos** (Recharts 3, colores en `tokens.chart`, validados para daltonismo): "Saldo mensual" = barras de ingresos y gastos de 12 meses, con "Ver tabla"; "Por categoría" = barras horizontales ordenadas con monto y %, **en lugar de torta**: comparan mejor montos parecidos y aguantan muchas categorías; "Evolución del saldo" = línea del saldo acumulado al cierre de cada mes. Los colores de estado (ok/peligro) no se usan para series.
