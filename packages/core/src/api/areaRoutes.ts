@@ -1,7 +1,8 @@
-import { existsSync, readdirSync } from 'node:fs';
 import type { AreaDefinition } from '@ger/shared';
 import type { FastifyPluginAsync } from 'fastify';
+import { importAreaModules } from '../areaModules.ts';
 import type { Db } from '../db/database.ts';
+import type { MediaStore } from '../records/media.ts';
 
 /**
  * Rutas propias de cada área: `src/areas/<area>/routes.ts` exporta por defecto
@@ -12,6 +13,8 @@ import type { Db } from '../db/database.ts';
 export interface AreaRoutesOptions {
   db: Db;
   area: AreaDefinition;
+  /** Fotos y archivos de los registros (para borrarlos junto con el registro). */
+  media: MediaStore;
 }
 
 export type AreaRoutes = FastifyPluginAsync<AreaRoutesOptions>;
@@ -21,21 +24,14 @@ export function defineAreaRoutes(plugin: AreaRoutes): AreaRoutes {
   return plugin;
 }
 
-const AREAS_DIR = new URL('../areas/', import.meta.url);
-
 /** Busca `areas/<area>/routes.ts` e importa cada uno. Devuelve id del área → rutas. */
-export async function loadAreaRoutes(areasDir: URL = AREAS_DIR): Promise<Map<string, AreaRoutes>> {
+export async function loadAreaRoutes(areasDir?: URL): Promise<Map<string, AreaRoutes>> {
   const routes = new Map<string, AreaRoutes>();
-  if (!existsSync(areasDir)) return routes;
-
-  for (const entry of readdirSync(areasDir, { withFileTypes: true })) {
-    const file = new URL(`./${entry.name}/routes.ts`, areasDir);
-    if (!entry.isDirectory() || !existsSync(file)) continue;
-    const mod = (await import(file.href)) as { default?: AreaRoutes };
-    if (typeof mod.default !== 'function') {
-      throw new Error(`areas/${entry.name}/routes.ts tiene que exportar por defecto defineAreaRoutes(...)`);
+  for (const [area, plugin] of await importAreaModules('routes.ts', areasDir)) {
+    if (typeof plugin !== 'function') {
+      throw new Error(`areas/${area}/routes.ts tiene que exportar por defecto defineAreaRoutes(...)`);
     }
-    routes.set(entry.name, mod.default);
+    routes.set(area, plugin as AreaRoutes);
   }
   return routes;
 }

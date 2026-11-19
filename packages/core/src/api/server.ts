@@ -3,6 +3,7 @@ import type { AreaRegistry, AreaResponse, AreasResponse, HealthResponse } from '
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import type { Db } from '../db/database.ts';
 import { NotFoundError, ValidationError } from '../records/errors.ts';
+import type { MediaStore } from '../records/media.ts';
 import type { AreaRoutes } from './areaRoutes.ts';
 
 /**
@@ -15,6 +16,8 @@ export interface ServerDeps {
   areas: AreaRegistry;
   apiToken: string;
   version: string;
+  /** Fotos y archivos de los registros (`data/media/`). */
+  media: MediaStore;
   /** Rutas propias de cada área (`loadAreaRoutes()`), montadas en `/areas/<id>/`. */
   areaRoutes?: ReadonlyMap<string, AreaRoutes>;
   logger?: FastifyServerOptions['logger'];
@@ -78,7 +81,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   for (const [areaId, routes] of deps.areaRoutes ?? []) {
     const area = deps.areas.get(areaId);
     if (!area) throw new Error(`Hay rutas para el área "${areaId}", pero el área no existe`);
-    void app.register(routes, { prefix: `/areas/${areaId}`, db: deps.db, area });
+    void app.register(routes, { prefix: `/areas/${areaId}`, db: deps.db, area, media: deps.media });
   }
 
   return app;

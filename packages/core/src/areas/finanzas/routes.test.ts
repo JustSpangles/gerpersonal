@@ -1,26 +1,39 @@
+import { existsSync } from 'node:fs';
 import { loadAreaRegistry } from '@ger/shared/node';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { loadAreaRoutes } from '../../api/areaRoutes.ts';
 import { buildServer } from '../../api/server.ts';
-import { createTestDb } from '../../db/testing.ts';
+import type { Db } from '../../db/database.ts';
+import { createTestDb, createTestMedia, removeTestMedia } from '../../db/testing.ts';
+import { buildRecordsRegistry, loadAreaRecords } from '../../records/areaRecords.ts';
+import type { MediaStore } from '../../records/media.ts';
+import { attachPhoto, listAttachments } from '../../records/service.ts';
 
 const TOKEN = 'token-de-prueba-1234567890';
 const headers = { authorization: `Bearer ${TOKEN}` };
 let app: FastifyInstance;
+let db: Db;
+let media: MediaStore;
 
 beforeEach(async () => {
+  db = createTestDb();
+  media = createTestMedia();
   app = buildServer({
-    db: createTestDb(),
+    db,
     areas: await loadAreaRegistry(),
     areaRoutes: await loadAreaRoutes(),
     apiToken: TOKEN,
     version: '0.0.0',
+    media,
   });
   await app.ready();
 });
 
-afterEach(() => app.close());
+afterEach(async () => {
+  await app.close();
+  removeTestMedia(media);
+});
 
 const call = (method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: object) =>
   app.inject({ method, url: `/areas/finanzas${url}`, headers, ...(payload ? { payload } : {}) });
@@ -45,6 +58,17 @@ describe('API de Finanzas', () => {
     const missing = await call('GET', '/movimientos/F1');
     expect(missing.statusCode).toBe(404);
     expect(missing.json().error).toBe('No existe el movimiento F1');
+  });
+
+  it('borrar un movimiento borra también sus fotos', async () => {
+    await call('POST', '/movimientos', { tipo: 'egreso', monto: 150000, categoria: 'comida' });
+    const records = buildRecordsRegistry(await loadAreaRegistry(), await loadAreaRecords());
+    const photo = attachPhoto({ db, records, media }, 'F1', { data: new Uint8Array([1, 2, 3]), mime: 'image/jpeg' });
+    expect(existsSync(media.resolve(photo.filePath))).toBe(true);
+
+    expect((await call('DELETE', '/movimientos/F1')).statusCode).toBe(204);
+    expect(listAttachments(db, 'F1')).toEqual([]);
+    expect(existsSync(media.resolve(photo.filePath))).toBe(false);
   });
 
   it('datos inválidos: 400 con el error de cada campo', async () => {

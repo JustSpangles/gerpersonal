@@ -19,8 +19,13 @@ export function openDatabase(file: string): Db {
   return db;
 }
 
-/** Corre `fn` dentro de una transacción: si tira error, no queda nada a medias. */
+/**
+ * Corre `fn` dentro de una transacción: si tira error, no queda nada a medias.
+ * Si ya hay una transacción abierta, se suma a esa (así un servicio que usa
+ * transacciones se puede llamar desde otra, como al borrar un registro con sus fotos).
+ */
 export function transaction<T>(db: Db, fn: () => T): T {
+  if (db.isTransaction) return fn();
   db.exec('BEGIN IMMEDIATE');
   try {
     const result = fn();

@@ -8,6 +8,7 @@ import type {
   TipoMovimiento,
 } from '@ger/shared/areas/finanzas/movimientos.ts';
 import { defineAreaRoutes } from '../../api/areaRoutes.ts';
+import { removeWithAttachments } from '../../records/service.ts';
 import {
   createMovimiento,
   deleteMovimiento,
@@ -26,7 +27,7 @@ import {
 
 type CodeParams = { Params: { code: string } };
 
-export default defineAreaRoutes(async (app, { db }) => {
+export default defineAreaRoutes(async (app, { db, media }) => {
   app.get<{ Querystring: FiltrosMovimientos }>(
     '/movimientos',
     async (request): Promise<MovimientosResponse> => ({ movimientos: listMovimientos(db, request.query) }),
@@ -47,8 +48,9 @@ export default defineAreaRoutes(async (app, { db }) => {
     async (request): Promise<MovimientoResponse> => ({ movimiento: updateMovimiento(db, request.params.code, request.body) }),
   );
 
+  // Borra también sus fotos, igual que `borrar` en el bot.
   app.delete<CodeParams>('/movimientos/:code', async (request, reply) => {
-    deleteMovimiento(db, request.params.code);
+    removeWithAttachments(db, media, () => deleteMovimiento(db, request.params.code));
     return reply.code(204).send();
   });
 

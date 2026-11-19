@@ -2,5 +2,8 @@
   "port": 3210,
   "host": "0.0.0.0",
   "apiToken": "reemplazar-por-un-token-largo-y-secreto",
-  "dataDir": "data"
+  "dataDir": "data",
+  "bot": {
+    "allowedNumbers": ["5491100000000"]
+  }
 }

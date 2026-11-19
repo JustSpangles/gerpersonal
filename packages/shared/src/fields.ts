@@ -77,7 +77,8 @@ export function fieldValueSchema(field: FieldDefinition): z.ZodType<string | num
   }
 }
 
-function listOptions(options: readonly string[]): string {
+/** `['a', 'b', 'c']` → `a, b o c`. */
+export function listOptions(options: readonly string[]): string {
   return options.length === 1 ? options[0]! : `${options.slice(0, -1).join(', ')} o ${options.at(-1)}`;
 }
 

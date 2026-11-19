@@ -4,12 +4,18 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DEFAULT_CORE_PORT } from '@ger/shared';
 import { z } from 'zod';
+import { isValidPhone, normalizePhone } from './bot/phone.ts';
 
 /**
  * Configuración del núcleo: `config.json` en la raíz del repo (está en
  * .gitignore). Otra ubicación: variable de entorno `GER_CONFIG`.
  * Si no existe, se crea con un token nuevo al azar.
  */
+
+const phoneSchema = z
+  .string()
+  .transform(normalizePhone)
+  .refine(isValidPhone, 'cada número va con código de país, por ejemplo 5491112345678');
 
 export const configSchema = z.object({
   port: z.number().int().min(1).max(65535).default(DEFAULT_CORE_PORT),
@@ -19,6 +25,16 @@ export const configSchema = z.object({
   apiToken: z.string().min(16, 'apiToken tiene que tener al menos 16 caracteres'),
   /** Carpeta con app.db y media/. Si es relativa, se toma desde la carpeta de config.json. */
   dataDir: z.string().min(1).default('data'),
+  bot: z
+    .object({
+      /**
+       * Lista blanca: los únicos números a los que responde el bot (el de Ger).
+       * Con código de país y, en Argentina, el 9 de celular: `5491112345678`.
+       * Se aceptan espacios, guiones y `+`. Vacía = no le responde a nadie.
+       */
+      allowedNumbers: z.array(phoneSchema).default([]),
+    })
+    .prefault({}),
 });
 
 export type CoreConfig = z.output<typeof configSchema>;

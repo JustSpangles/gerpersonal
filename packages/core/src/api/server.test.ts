@@ -2,6 +2,7 @@ import { loadAreaRegistry } from '@ger/shared/node';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase } from '../db/database.ts';
+import { createTestMedia } from '../db/testing.ts';
 import { buildServer } from './server.ts';
 
 const TOKEN = 'token-de-prueba-1234567890';
@@ -9,7 +10,7 @@ const auth = { authorization: `Bearer ${TOKEN}` };
 let app: FastifyInstance;
 
 beforeAll(async () => {
-  app = buildServer({ db: openDatabase(':memory:'), areas: await loadAreaRegistry(), apiToken: TOKEN, version: '9.9.9' });
+  app = buildServer({ db: openDatabase(':memory:'), areas: await loadAreaRegistry(), apiToken: TOKEN, version: '9.9.9', media: createTestMedia() });
   await app.ready();
 });
 

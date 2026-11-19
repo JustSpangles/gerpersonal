@@ -84,7 +84,7 @@ packages/shared/src/areas/<area>/<registros>.ts  # campos y tipos de la API (ej.
 packages/core/src/areas/<area>/migrations/NNN_<area>.sql  # tablas (ver §11: numeración global)
 packages/core/src/areas/<area>/service.ts        # lógica (crear, listar, editar, borrar, stats)
 packages/core/src/areas/<area>/routes.ts         # API del área, en /areas/<area>/ (capa fina)
-packages/core/src/areas/<area>/commands.ts       # (opcional) comportamiento extra del bot
+packages/core/src/areas/<area>/records.ts        # el área para el bot: buscar, editar, borrar y crear con cada comando (capa fina)
 packages/desktop/src/areas/<area>/View.tsx       # pantalla del área (si falta, vista vacía)
 packages/desktop/src/areas/<area>/charts.tsx     # gráficos
 packages/desktop/src/assets/icons/<area>.svg     # ícono del cuadro del menú
@@ -197,8 +197,8 @@ attachments(id, record_code, file_path, mime, created_at)
 ### Estado actual
 - [x] Fase 1 — esqueleto listo (16/11/2026). 50 tests en verde. Probado: núcleo con Node directo, interfaz en navegador y en Electron.
 - [x] Fase 2 — Finanzas completa (16/11/2026): servicio, API, pantalla con formulario, lista y gráficos, y comandos `gasté`/`cobré` definidos (el bot los conecta en la fase 3). 138 tests en verde. Probado en el navegador contra un núcleo real: alta, edición, borrado, filtros y gráficos.
-- [ ] Fase 3a — lógica del bot sin conexión (es la siguiente)
-- [ ] Fase 3b — conexión con WhatsApp (espera el número del bot)
+- [x] Fase 3a — lógica del bot sin conexión (19/11/2026): parser genérico, `ayuda`/`ver`/`editar`/`borrar`, `gasté`/`cobré`, fotos por código y por cita, lista blanca. 209 tests en verde. Conversación de ejemplo con las respuestas reales en `packages/core/src/bot/conversacion-ejemplo.md`.
+- [ ] Fase 3b — conexión con WhatsApp (es la siguiente; espera el número del bot)
 - [ ] Fase 4
 - [ ] Fase 5
 - [ ] Fase 6
@@ -232,6 +232,7 @@ attachments(id, record_code, file_path, mime, created_at)
 | `npm run dev:desktop` | Programa de PC en Electron (la primera vez baja Electron) |
 | `npm run dev:web` | Solo la interfaz, en el navegador (http://localhost:5173) |
 | `npm test` / `npm run typecheck` | Tests (Vitest) / chequeo de tipos de los 3 paquetes |
+| `npx vitest run -u` | Acepta los cambios de los snapshots (p. ej. la conversación de ejemplo del bot) |
 | `npm run build:desktop` | Compila Electron a `packages/desktop/out/` |
 
 ### Fase 1 (esqueleto)
@@ -261,12 +262,22 @@ attachments(id, record_code, file_path, mime, created_at)
 - **Pantalla de Finanzas**: un mes por vez (`#/area/finanzas?mes=2026-11`): totales, gráficos y lista con filtro por tipo y por categoría (tocando la categoría). Al guardar un movimiento de otro mes, salta a ese mes. Los avisos muestran el código (`✅ F63 guardado: …`).
 - **Gráficos** (Recharts 3, colores en `tokens.chart`, validados para daltonismo): "Saldo mensual" = barras de ingresos y gastos de 12 meses, con "Ver tabla"; "Por categoría" = barras horizontales ordenadas con monto y %, **en lugar de torta**: comparan mejor montos parecidos y aguantan muchas categorías; "Evolución del saldo" = línea del saldo acumulado al cierre de cada mes. Los colores de estado (ok/peligro) no se usan para series.
 
-### Notas para la fase 3 (bot)
-Pendiente de hacer, no decidido en código todavía. La 3a no necesita el número de WhatsApp.
-- **Capa fina y testeable**: el manejo de mensajes es una función pura (mensaje entrante → respuesta) separada del socket de Baileys. La 3a la arma y la prueba con Vitest; la 3b solo la enchufa a WhatsApp.
-- **Parser genérico** en `shared`: palabra clave con `normalizeText`, campos separados por ` - `, opcionales omitibles al final, los `fixed` no se escriben y cada campo pasa por `parseFieldValue`. El mensaje de formato se arma desde los campos y el `example` del comando, no se escribe a mano.
-- **`ver` / `editar` / `borrar` para cualquier área**: hace falta una capa genérica de registros: el prefijo del código lleva al servicio del área (obtener, editar, borrar y describir para la confirmación). Hoy solo existe Finanzas (`findMovimiento`, `updateMovimiento`, `deleteMovimiento`).
-- **`borrar`** pide `sí`; cualquier otra respuesta cancela.
-- **Fotos**: archivo en `data/media/` y fila en `attachments` (ya existe en `001_init.sql`). Al borrar un registro hay que borrar también sus adjuntos: hoy no se hace.
-- **Lista blanca**: el número de Ger va en `config.json` (con un ejemplo en `config.example.json`). La 3a lo prueba con números de mentira.
-- **Baileys (3b)**: versión publicada hace por lo menos 2 semanas y sin dependencias nativas, para que ande en Termux. La sesión de WhatsApp se guarda en `data/` (gitignored). Si no está vinculada, la API igual tiene que arrancar.
+### Fase 3a (lógica del bot, sin WhatsApp)
+- **El bot es una función** (`core/src/bot/bot.ts`): `createBot(deps).handle(mensaje)` → lista de respuestas. Entra `{ from, text, photo?, quoted? }` y salen textos y fotos (con la ruta absoluta del archivo); tipos en `bot/types.ts`. Si el número no está en la lista blanca, devuelve `[]`. No sabe nada de WhatsApp: interpreta el texto y llama a los servicios. Lo único que recuerda es el `borrar` que espera el `sí` (en memoria, por número).
+- **Textos del bot**: todos en `bot/messages.ts`, para cambiarlos en un solo lugar. Toda respuesta sobre un registro lleva el código en la primera línea (`✅ 💰 F14 guardado: …`, `💰 *F14* · Finanzas`, `✏️ 💰 F14 corregido · …`): de ahí sale el código cuando Ger responde a ese mensaje con una foto. Los ejemplos de `ayuda`, `ver`, `editar` y `borrar` (`F14`, `monto`, `1.500`) salen del primer comando de un área, no están escritos a mano.
+- **Parser genérico** (`shared/src/commands.ts`): `createCommandMatcher(registry)` encuentra el comando (palabras clave sin tildes ni mayúsculas; pueden tener varias palabras y gana la más larga), `parseCommandArgs` interpreta los campos (los `fixed` se suman solos) y `commandHelp` arma el mensaje de formato desde los campos (`hint`, tipo, opciones, valor por defecto) y el `example`. Separador: guion con espacios a los dos lados; también valen `–` y `—`, porque los teclados de celular los cambian solos. Un campo vacío en el medio saltea un opcional: `gasté 1500 - comida - - ayer`. Si sobran campos, es un error.
+- **Errores**: el bot dice qué campo está mal (los que faltan, juntos: `⚠️ Falta: categoría`) y repite el formato entero. Un error en los datos no gasta un código.
+- **Capa genérica de registros** (`core/src/records/`): cada área con comandos tiene `areas/<area>/records.ts`, que exporta `defineAreaRecords({ find, update, delete, commands })`. Solo llama a su servicio y devuelve un `RecordView` (`code`, `fields`, `values`; un área con varios tipos de registro da los campos de cada uno). `commands` tiene una función por cada id de comando; `buildRecordsRegistry` verifica al arrancar que no falte ni sobre ninguna. El servicio genérico (`records/service.ts`) tiene `findRecord`, `getRecord`, `createRecord`, `updateRecord`, `deleteRecord`, `attachPhoto` y `listAttachments`. Los `records.ts` se descubren por carpeta con `importAreaModules` (`core/src/areaModules.ts`), igual que las rutas.
+- **`editar <código> <campo> - <valor>`**: el campo se reconoce por su nombre sin tildes (`categoria`) o por su clave; sin guion también vale `editar F14 monto 2000`. Sin valor (`editar F14 nota -`) vacía un campo opcional. También se puede cambiar el `tipo`. La respuesta muestra el antes y el después.
+- **`borrar`**: pide `sí` (vale `Sí`, `si!`…) y espera 5 minutos. `no` cancela; cualquier otro mensaje también cancela y, si es un comando, además se hace. Un `sí` sin nada pendiente → "No tenía nada para confirmar".
+- **Fotos** (`records/media.ts`): `data/media/AAAA-MM/F14_2026-11-19_13-30.jpg` (fecha y hora de Argentina; si se repite, `_2`). En la base va la ruta relativa, siempre con `/`. Solo JPG, PNG y WebP. A qué registro va, en este orden: el código escrito de pie; si el pie es un comando, se crea ese registro y la foto queda en él; si no, el código del mensaje del bot que se está citando (solo si `quoted.fromBot`). Si no hay ninguno, no se guarda y el bot pregunta de qué registro es.
+- **Borrar con las fotos**: `removeWithAttachments` borra el registro y sus filas de `attachments` en una transacción, y después los archivos. Lo usa también `DELETE /areas/finanzas/movimientos/:code`; por eso el servidor y las rutas de cada área reciben `media` (`createMediaStore`). `transaction()` ahora se suma a una transacción abierta en vez de fallar.
+- **Lista blanca**: `bot.allowedNumbers` en `config.json` (ejemplo en `config.example.json`). Se aceptan `+`, espacios y guiones, y se guarda solo con dígitos: código de país y, en Argentina, el 9 de celular (`5491112345678`). El número que llega también puede ser el JID de WhatsApp (`…@s.whatsapp.net`, con o sin `:dispositivo`). Sin la clave o con la lista vacía, el bot no le responde a nadie: los `config.json` viejos siguen andando.
+- **Transporte** (`bot/transport.ts`): `BotTransport { start(onMessage), send(to, reply), stop() }` es lo que tiene que implementar la 3b. `runBot(bot, transporte)` procesa los mensajes de a uno y en orden (importa para `borrar` → `sí`), y si falla uno sigue con el próximo. `main.ts` ya crea el bot con la configuración y avisa que falta conectarlo.
+- **Tests del bot**: `createTestBot()` (`bot/testing.ts`), con números de mentira y un reloj que se puede mover. `conversation.test.ts` arma `bot/conversacion-ejemplo.md` con las respuestas reales: si cambia un texto, el test falla, y `npx vitest run -u` acepta el cambio.
+
+### Notas para la fase 3b (conexión con WhatsApp)
+Pendiente. Falta implementar `BotTransport` con Baileys y llamar a `runBot(bot, transporte)` en `main.ts`.
+- **Baileys**: versión publicada hace por lo menos 2 semanas y sin dependencias nativas, para que ande en Termux. La sesión de WhatsApp se guarda en `data/` (gitignored). Si no está vinculada, la API igual tiene que arrancar.
+- **El transporte** ignora los mensajes propios y los de grupos, baja las fotos (`photo`), pone el pie de foto en `text` y, si el mensaje responde a otro, el texto citado en `quoted`, con `fromBot` = si lo mandó el bot. Audios, stickers y demás van con `text: ''` (el bot contesta que por ahora entiende texto y fotos).
+- **`from` tiene que ser el número de teléfono.** A verificar: WhatsApp a veces identifica a los contactos con un LID (`…@lid`) en vez del número. Si pasa, hay que sacar el número real antes de pasarlo al bot, o la lista blanca no va a coincidir.
